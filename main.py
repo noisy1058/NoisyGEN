@@ -14,6 +14,8 @@ TANDA_MAX = 5
 ESPERA_HORA = 3605 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+
+
 def save_to_csv(email):
     with open(OUTPUT_FILE, mode='a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
@@ -31,7 +33,7 @@ def handle_login_flow():
     with sync_playwright() as p:
         storage = SETTINGS_FILE if os.path.exists(SETTINGS_FILE) and os.path.getsize(SETTINGS_FILE) > 100 else None
         
-        browser = p.chromium.launch(headless=False, args=["--start-maximized"])
+        browser = p.chromium.launch(headless=False,channel="chrome",args=["--start-maximized","--window-position=0,0"])
         context = browser.new_context(
             storage_state=storage, 
             user_agent=USER_AGENT,
@@ -56,7 +58,7 @@ def handle_login_flow():
 def run_headless_generation(target_total, acumulado):
     with sync_playwright() as p:
         browser = p.chromium.launch(
-            headless=True,
+            headless=True,channel="chrome",
             args=[
                 '--disable-blink-features=AutomationControlled', 
                 '--no-sandbox',
