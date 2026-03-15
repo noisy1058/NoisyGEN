@@ -9,3 +9,5 @@ Behaviour:
 - Second time: you will see that after the first time you run it a file called "settings.json" that contains your cookies information about login will appear (this will help to skip login in your icloud account), so you will only have to introduce the number of mails you want to gen.
 
 - IMPORTANT: remember that icloud only allows users to generate 5 mails per hour, bot will automatically handle this by genning the accounts in rounds of 5, after 5 genned accounts it will wait 1 hour and 5 seconds to gen the next accounts.
+
+-REMEMBER: it is mandatory to have chrome language in Spanish for the correct functioning of the tool
