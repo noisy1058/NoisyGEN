@@ -10,4 +10,4 @@ Behaviour:
 
 - IMPORTANT: remember that icloud only allows users to generate 5 mails per hour, bot will automatically handle this by genning the accounts in rounds of 5, after 5 genned accounts it will wait 1 hour and 5 seconds to gen the next accounts.
 
--REMEMBER: it is mandatory to have chrome language in Spanish for the correct functioning of the tool
+- REMEMBER: it is mandatory to have chrome language in Spanish for the correct functioning of the tool
