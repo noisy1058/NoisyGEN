@@ -1,5 +1,9 @@
 import os, json, time, csv, random
 from playwright.sync_api import sync_playwright
+from colorama import init, Fore, Style
+from datetime import datetime
+import calendar
+from tzlocal import get_localzone
 
 TITLE =("""  _   _       _            ____ _____ _   _ \n """
 """| \\ | | ___ (_)___ _   _ / ___| ____| \\ | |\n """
@@ -14,7 +18,14 @@ TANDA_MAX = 5
 ESPERA_HORA = 3605 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
+def error(msg): 
+    print(f"{Fore.RED}[ERROR] {msg}")
 
+def success(msg):
+    print(f"{Fore.GREEN}[OK] {msg}")
+
+def info(msg):
+    print(f"{Fore.CYAN}[INFO] {msg}")
 
 def save_to_csv(email):
     with open(OUTPUT_FILE, mode='a', newline='', encoding='utf-8') as f:
@@ -28,6 +39,11 @@ def check_session_validity(context, page):
         return page.is_visible(selector_perfil, timeout=10000)
     except:
         return False
+    
+def get_timezone():
+    timezone = get_localzone()
+    return str(timezone)
+
 
 def handle_login_flow():
     with sync_playwright() as p:
@@ -44,14 +60,15 @@ def handle_login_flow():
         if check_session_validity(context, page):
             pass
         else:
-            print("LOGIN REQUERIDO: Por favor, identifícate en la ventana...")
+            print(get_timezone())
+            info("LOGIN REQUIRED: Please identificate yourself in the window...")
             selector_perfil = 'div[aria-label="Ir a la página de ajustes de iCloud"]'
             page.wait_for_selector(selector_perfil, timeout=0)
             time.sleep(5)
             
             with open(SETTINGS_FILE, "w") as f:
                 json.dump(context.storage_state(), f)
-            print("Sesión guardada.")
+            success("Icloud session saved")
         
         browser.close()
 
@@ -79,7 +96,7 @@ def run_headless_generation(target_total, acumulado):
             is_mobile=False,
             has_touch=False,
             locale='es-ES',
-            timezone_id='Europe/Madrid'
+            timezone_id= get_timezone()
         )
         
         page = context.new_page()
@@ -97,16 +114,16 @@ def run_headless_generation(target_total, acumulado):
                 page.goto(URL_BASE, wait_until="domcontentloaded")
                 time.sleep(3)
             except Exception as e:
-                print(f"Aviso de carga: {e}")
+                info("Loading: {e}")
 
-            print("Accediendo al menú...")
+            info("Going to the menu...")
             
             try:
                 page.get_by_role("button", name="Acceso rápido").click()
                 time.sleep(1)
                 page.get_by_text("Ocultar mi correo electrónico").first.click()
             except:
-                print("Error: No se pudo acceder al menú. Revisa si la sesión expiró.")
+                print("Could not acces the menu, check if the cookie is still valid ")
                 return 0
 
             page.wait_for_load_state("networkidle")
@@ -114,7 +131,7 @@ def run_headless_generation(target_total, acumulado):
 
             generados_esta_tanda = 0
             while generados_esta_tanda < TANDA_MAX and (acumulado + generados_esta_tanda) < target_total:
-                print(f"Intentando crear cuenta {acumulado + generados_esta_tanda + 1}/{target_total}...")
+                info(f"Trying to create account {acumulado + generados_esta_tanda + 1}/{target_total}...")
 
                 selector_mas = 'button[title="Añadir"]'
                 boton = page.locator(selector_mas)
@@ -140,21 +157,21 @@ def run_headless_generation(target_total, acumulado):
                             break
                 
                 if not input_etiqueta.is_visible():
-                    print("El modal no se abrió correctamente. Reintentando...")
+                    error("Not oepened correctly, retrying")
                     target_context.reload()
                     continue
 
                 try:
                     nuevo_email = target_context.get_by_text("@icloud.com").first.inner_text()
                 except:
-                    print("No se pudo leer el email. Reintentando...")
+                    error("Email could not be read ")
                     continue
 
                 input_etiqueta.click()
                 input_etiqueta.type("noisy_gen", delay=150) 
                 time.sleep(2)
 
-                print(f"Solicitando creación de: {nuevo_email}...")
+                info(f"Requesting to create account of: {nuevo_email}")
                 target_context.locator('button:has-text("Crear dirección de correo")').click(force=True)
                 
                 exito_creacion = False
@@ -163,24 +180,24 @@ def run_headless_generation(target_total, acumulado):
                     target_context.wait_for_selector('button:has-text("Volver")', state="visible", timeout=20000)
                     
                     save_to_csv(nuevo_email)
-                    print(f"Email creado y guardado: {nuevo_email}")
+                    success(f"Email created and saved: {nuevo_email}")
                     
                     target_context.get_by_role("button", name="Volver").click()
                     exito_creacion = True
                     generados_esta_tanda += 1
 
                 except Exception:
-                    print(f"FALLO: Apple no confirmó la creación de {nuevo_email}.")
+                    error(f"FAILURE: Apple not confirmed account creation for {nuevo_email}")
                     
                     try:
                         if target_context.locator('text="No se ha podido"').is_visible() or \
                            target_context.locator('text="límite"').is_visible():
-                            print("DETECTADO BLOQUEO DE APPLE O LÍMITE ALCANZADO.")
+                            error("RATELIMITED OR MAX AMMOUNT OF MAILS CREATED")
                             return generados_esta_tanda 
                     except:
                         pass
                     
-                    print("Reiniciando navegación para limpiar estado...")
+                    info("Restarting navigation...")
                     page.goto(URL_BASE, wait_until="domcontentloaded")
                     time.sleep(5)
                     try:
@@ -190,7 +207,7 @@ def run_headless_generation(target_total, acumulado):
                     except: pass
                 
                 if exito_creacion and generados_esta_tanda < TANDA_MAX and (acumulado + generados_esta_tanda) < target_total:
-                    print("Refrescando interfaz para la siguiente cuenta...")
+                    info("Refreshing for next account")
                     try:
                         page.goto(URL_BASE, wait_until="domcontentloaded")
                         time.sleep(4)
@@ -224,25 +241,29 @@ if __name__ == "__main__":
     if not os.path.exists(OUTPUT_FILE):
         with open(OUTPUT_FILE, 'w', encoding='utf-8') as f: pass
 
-    try:
-        total_deseado = int(input("¿Cuántos correos quieres generar en total?: "))
+    while True:
+        try:
+            total_deseado = int(input("How many mails do you want to generate? "))
         
-        handle_login_flow()
+            handle_login_flow()
         
-        total_acumulado = 0
-        while total_acumulado < total_deseado:
-            print(f"\nPROGRESO GLOBAL: {total_acumulado}/{total_deseado}")
+            total_acumulado = 0
+            while total_acumulado < total_deseado:
+                info(f"GLOBAL PROGRESS: {total_acumulado}/{total_deseado}")
             
-            creados = run_headless_generation(total_deseado, total_acumulado)
-            total_acumulado += creados
+                creados = run_headless_generation(total_deseado, total_acumulado)
+                total_acumulado += creados
             
-            if total_acumulado < total_deseado:
-                print(f"Tanda terminada (o bloqueada). Esperando 1 hora...")
-                for i in range(60, 0, -1):
-                    time.sleep(60) 
-                time.sleep(5) 
+                if total_acumulado < total_deseado:
+                    success("Batch finished, waiting 1 hour to continue...")
+                    for i in range(60, 0, -1):
+                        time.sleep(60) 
+                    time.sleep(5) 
         
-        print(f"\n{total_acumulado} correos generados y verificados.")
+            success(f"\n{total_acumulado} mails generated and verified")
         
-    except KeyboardInterrupt:
-        print("\nDetenido.")
+        except ValueError:
+            error("Please enter a valid number")
+
+        except KeyboardInterrupt:
+            print("\nDetenido.")
