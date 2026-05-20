@@ -5,6 +5,8 @@ from datetime import datetime
 import calendar
 from tzlocal import get_localzone
 
+init(autoreset=True)
+
 TITLE =("""  _   _       _            ____ _____ _   _ \n """
 """| \\ | | ___ (_)___ _   _ / ___| ____| \\ | |\n """
 """|  \\| |/ _ \\| / __| | | | |  _|  _| |  \\| |\n """
@@ -18,14 +20,14 @@ TANDA_MAX = 5
 ESPERA_HORA = 3605 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-def error(msg): 
-    print(f"{Fore.RED}[ERROR] {msg}")
+def error(msg, *args):
+    print(f"{Fore.RED}[ERROR] {msg % args if args else msg}")
 
-def success(msg):
-    print(f"{Fore.GREEN}[OK] {msg}")
+def success(msg, *args):
+    print(f"{Fore.GREEN}[OK] {msg % args if args else msg}")
 
-def info(msg):
-    print(f"{Fore.CYAN}[INFO] {msg}")
+def info(msg, *args):
+    print(f"{Fore.CYAN}[INFO] {msg % args if args else msg}")
 
 def save_to_csv(email):
     with open(OUTPUT_FILE, mode='a', newline='', encoding='utf-8') as f:
@@ -49,7 +51,7 @@ def handle_login_flow():
     with sync_playwright() as p:
         storage = SETTINGS_FILE if os.path.exists(SETTINGS_FILE) and os.path.getsize(SETTINGS_FILE) > 100 else None
         
-        browser = p.chromium.launch(headless=False,channel="chrome",args=["--start-maximized","--window-position=0,0"])
+        browser = p.chromium.launch(headless=False, channel="chrome", args=["--start-maximized", "--window-position=0,0"])
         context = browser.new_context(
             storage_state=storage, 
             user_agent=USER_AGENT,
@@ -75,7 +77,7 @@ def handle_login_flow():
 def run_headless_generation(target_total, acumulado):
     with sync_playwright() as p:
         browser = p.chromium.launch(
-            headless=True,channel="chrome",
+            headless=True, channel="chrome",
             args=[
                 '--disable-blink-features=AutomationControlled', 
                 '--no-sandbox',
@@ -96,7 +98,7 @@ def run_headless_generation(target_total, acumulado):
             is_mobile=False,
             has_touch=False,
             locale='es-ES',
-            timezone_id= get_timezone()
+            timezone_id=get_timezone()
         )
         
         page = context.new_page()
@@ -107,14 +109,14 @@ def run_headless_generation(target_total, acumulado):
             });
         """)
         
-        page.set_default_timeout(60000)
+        page.set_default_timeout(15000)
 
         try:
             try:
                 page.goto(URL_BASE, wait_until="domcontentloaded")
                 time.sleep(3)
             except Exception as e:
-                info("Loading: {e}")
+                info(f"Loading: {e}")
 
             info("Going to the menu...")
             
@@ -126,8 +128,7 @@ def run_headless_generation(target_total, acumulado):
                 print("Could not acces the menu, check if the cookie is still valid ")
                 return 0
 
-            page.wait_for_load_state("networkidle")
-            time.sleep(5)
+            time.sleep(6)
 
             generados_esta_tanda = 0
             while generados_esta_tanda < TANDA_MAX and (acumulado + generados_esta_tanda) < target_total:
@@ -171,7 +172,7 @@ def run_headless_generation(target_total, acumulado):
                 input_etiqueta.type("noisy_gen", delay=150) 
                 time.sleep(2)
 
-                info(f"Requesting to create account of: {nuevo_email}")
+                info("Requesting to create account of: %s", nuevo_email)
                 target_context.locator('button:has-text("Crear dirección de correo")').click(force=True)
                 
                 exito_creacion = False
@@ -214,9 +215,7 @@ def run_headless_generation(target_total, acumulado):
                         page.get_by_role("button", name="Acceso rápido").click()
                         time.sleep(1)
                         page.get_by_text("Ocultar mi correo electrónico").first.click()
-                        
-                        page.wait_for_load_state("networkidle")
-                        time.sleep(4)
+                        time.sleep(6)
                     except Exception as e:
                         print(f"Error al refrescar: {e}")
                         pass
@@ -227,9 +226,6 @@ def run_headless_generation(target_total, acumulado):
 
         except Exception as e:
             print(f"Error crítico en modo terminal: {e}")
-            try:
-                page.screenshot(path="error_stealth.png")
-            except: pass
             return 0
         finally:
             browser.close()
