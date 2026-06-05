@@ -1,13 +1,55 @@
 # NoisyGEN
 
-Automated software that allows user to generate icloud hidden mails that are automatically redirected to your main icloud mail.  
+Automated software that allows user to generate icloud hidden mails that are automatically redirected to your main icloud account.  
 
-Behaviour:  
+---
 
-- First time running: when you introduce the number of mails you want to generate, it will ask you to manually make login in your icloud account (remember  to tick keep alive session checkbox). After logging in it will automatically close chromium tab and will continue with the mails creation without interface.  
+## What is it made for?
 
-- Second time: you will see that after the first time you run it a file called "settings.json" that contains your cookies information about login will appear (this will help to skip login in your icloud account), so you will only have to introduce the number of mails you want to gen.
+iCloud's "Hide My Email" feature lets you create random email addresses. NoisyGEN automates this creation of adresses, so you can generate them in bulk instead of doing it one by one manually.
 
-- IMPORTANT: remember that icloud only allows users to generate 5 mails per hour, bot will automatically handle this by genning the accounts in rounds of 5, after 5 genned accounts it will wait 1 hour and 5 seconds to gen the next accounts.
+---
 
-- REMEMBER: it is mandatory to have chrome language in Spanish for the correct functioning of the tool
+## Requirements 
+- Python 3.10 or newer version
+- Google chrome installed in your pc
+- Active iCloud+ suscription (1€/month), required to use "Hide My Email" feature
+- Google chrome language set to Spanish (if not, selectors wont work)
+
+### Install dependencies 
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## First time running 
+
+1. Run the script
+```bash
+python main.py
+```
+2. Enter the number of email addresses you want to generate
+3. Login with your icloud account credentials in the chrome window that will open 
+>**IMPORTANT:** tick the "Keep me signed in checkbox before submitting the log in"
+4. Once logged, do not touch anyhting, the script will take care of the rest and start generating mails
+5. A `settings.json` file is created with your session cookies so for future runs, the script skips the login step
+
+---
+
+## Rate limit handling
+
+Apple limits email addresses creation to 5 per hour. This script handles it automatically by:
+- Generates mails in rounds of 5
+- After each round, the script waits 1 hour and 5 seconds before continuing with the new bunch of mails
+
+---
+
+## Output (mail.csv)
+
+Generated mails are saved into `mail.csv` inside the project folder
+
+## Extra notes
+
+- If you want to force a login into a new account, delete `settings.json` and run the script again. The same happens in case cookies expire
