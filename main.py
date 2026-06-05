@@ -262,4 +262,4 @@ if __name__ == "__main__":
             error("Please enter a valid number")
 
         except KeyboardInterrupt:
-            print("\nDetenido.")
+            break;
