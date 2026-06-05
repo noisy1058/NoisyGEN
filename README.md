@@ -1,4 +1,5 @@
 # NoisyGEN
+![Vinicius Cabra](images/vini.jpg)
 
 Automated software that allows user to generate icloud hidden mails that are automatically redirected to your main icloud account.  
 
