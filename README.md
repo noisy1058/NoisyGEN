@@ -50,6 +50,14 @@ Apple limits email addresses creation to 5 per hour. This script handles it auto
 
 Generated mails are saved into `mail.csv` inside the project folder
 
+## Discord notifications
+
+Every time a mail is created, NoisyGEN can send it to a Discord channel through a webhook.
+
+1. In Discord: channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL
+2. The first time you run the script it will ask for the webhook URL (leave it empty to disable notifications)
+3. The URL is saved in `config.json`. To change it or disable it, edit or delete that file
+
 ## Extra notes
 
 - If you want to force a login into a new account, delete `settings.json` and run the script again. The same happens in case cookies expire

@@ -1,7 +1,8 @@
 import os, json, time, csv, random
+import urllib.request
 from playwright.sync_api import sync_playwright
 from colorama import init, Fore, Style
-from datetime import datetime
+from datetime import datetime, timezone
 import calendar
 from tzlocal import get_localzone
 
@@ -16,6 +17,7 @@ TITLE =("""  _   _       _            ____ _____ _   _ \n """
 URL_BASE = "https://www.icloud.com/"
 SETTINGS_FILE = "settings.json"
 OUTPUT_FILE = "mail.csv"
+CONFIG_FILE = "config.json"
 TANDA_MAX = 5
 ESPERA_HORA = 3605 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -33,6 +35,47 @@ def save_to_csv(email):
     with open(OUTPUT_FILE, mode='a', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow([email])
+
+def load_webhook_url():
+    config = {}
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, encoding='utf-8') as f:
+                config = json.load(f)
+        except Exception:
+            error("Could not read %s, ignoring it", CONFIG_FILE)
+
+    if "discord_webhook" not in config:
+        url = input("Discord webhook URL (leave empty to disable): ").strip()
+        config["discord_webhook"] = url
+        with open(CONFIG_FILE, "w", encoding='utf-8') as f:
+            json.dump(config, f, indent=4)
+
+    return config.get("discord_webhook") or None
+
+def notify_discord(webhook_url, email, numero, total):
+    if not webhook_url:
+        return
+    payload = {
+        "username": "NoisyGEN",
+        "embeds": [{
+            "title": "New iCloud mail created",
+            "description": f"```{email}```",
+            "color": 0x2ECC71,
+            "fields": [{"name": "Progress", "value": f"{numero}/{total}", "inline": True}],
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }]
+    }
+    req = urllib.request.Request(
+        webhook_url,
+        data=json.dumps(payload).encode('utf-8'),
+        headers={"Content-Type": "application/json", "User-Agent": "NoisyGEN"},
+        method="POST"
+    )
+    try:
+        urllib.request.urlopen(req, timeout=10).close()
+    except Exception as e:
+        error("Discord webhook failed: %s", e)
 
 def check_session_validity(context, page):
     selector_perfil = 'div[aria-label="Ir a la página de ajustes de iCloud"]'
@@ -74,7 +117,7 @@ def handle_login_flow():
         
         browser.close()
 
-def run_headless_generation(target_total, acumulado):
+def run_headless_generation(target_total, acumulado, webhook_url=None):
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True, channel="chrome",
@@ -182,6 +225,7 @@ def run_headless_generation(target_total, acumulado):
                     
                     save_to_csv(nuevo_email)
                     success(f"Email created and saved: {nuevo_email}")
+                    notify_discord(webhook_url, nuevo_email, acumulado + generados_esta_tanda + 1, target_total)
                     
                     target_context.get_by_role("button", name="Volver").click()
                     exito_creacion = True
@@ -237,6 +281,8 @@ if __name__ == "__main__":
     if not os.path.exists(OUTPUT_FILE):
         with open(OUTPUT_FILE, 'w', encoding='utf-8') as f: pass
 
+    webhook_url = load_webhook_url()
+
     while True:
         try:
             total_deseado = int(input("How many mails do you want to generate? "))
@@ -247,7 +293,7 @@ if __name__ == "__main__":
             while total_acumulado < total_deseado:
                 info(f"GLOBAL PROGRESS: {total_acumulado}/{total_deseado}")
             
-                creados = run_headless_generation(total_deseado, total_acumulado)
+                creados = run_headless_generation(total_deseado, total_acumulado, webhook_url)
                 total_acumulado += creados
             
                 if total_acumulado < total_deseado:
